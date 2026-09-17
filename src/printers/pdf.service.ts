@@ -16,6 +16,7 @@ export class PdfService {
         const page = await browser.newPage();
         try {
           await page.setContent(html, { waitUntil: 'load' });
+          await page.evaluate(() => document.fonts.ready);
           const pdf = await page.pdf({
             format: 'A4',
             printBackground: true,

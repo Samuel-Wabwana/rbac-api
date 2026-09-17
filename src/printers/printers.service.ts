@@ -7,6 +7,7 @@ import { randomUUID } from 'crypto';
 import { CreatePrintJobDto } from './dto/create-print-job.dto';
 import { PrintJobResponseDto } from './dto/print-job-response.dto';
 import { filenameFromItem } from './filename.util';
+import { FontService } from './font.service';
 import { ImageService } from './image.service';
 import { PdfService } from './pdf.service';
 import { PrintJobMeta } from './print-job.types';
@@ -20,6 +21,7 @@ export class PrintersService {
     private readonly pdfService: PdfService,
     private readonly storageService: StorageService,
     private readonly imageService: ImageService,
+    private readonly fontService: FontService,
   ) {}
 
   uploadImage(file: Express.Multer.File) {
@@ -54,11 +56,13 @@ export class PrintersService {
       const photoContext = dto.photo
         ? await this.imageService.hydrateItem({ photo: dto.photo })
         : {};
+      const fontContext = (await this.fontService.load(dto.templateId)) ?? {};
       const htmlDocuments = await Promise.all(
         dto.items.map(async (item) =>
           this.templateService.render(dto.templateId, {
             ...(await this.imageService.hydrateItem(item)),
             ...photoContext,
+            ...fontContext,
           }),
         ),
       );

@@ -131,9 +131,19 @@ Le CRUD scaffold (`GET/POST/PATCH/DELETE /printers`) a été retiré.
 
 **Livrable :** upload → `photo` au niveau du job → image dans chaque PDF.
 
+### 11. Police du template
+
+- [x] Dossier versionné `src/printers/fonts/`
+- [x] Fichier nommé comme le template : `user-card.woff2` (ou `.woff` / `.ttf` / `.otf`)
+- [x] Au rendu, hydratation en data URL + `@font-face` dans le HTML
+- [x] Si le fichier est absent, le job continue avec Arial / Helvetica
+- [x] `page.evaluate(() => document.fonts.ready)` avant `page.pdf()`
+
+**Livrable :** déposer la police à côté du template ; PDF typographié si le fichier est là, sinon fallback silencieux.
+
 #### Docker / Chromium
 
-Puppeteer lance Chrome. Dans une image Linux, installer les libs système (ex. `ca-certificates`, `fonts-liberation`, dépendances Chromium) et lancer Chrome avec `--no-sandbox` (déjà passé dans `PdfService`). Copier aussi les templates `.hbs` dans l’image (`nest build` les copie via `nest-cli.json` assets).
+Puppeteer lance Chrome. Dans une image Linux, installer les libs système (ex. `ca-certificates`, `fonts-liberation`, dépendances Chromium) et lancer Chrome avec `--no-sandbox` (déjà passé dans `PdfService`). Copier aussi les templates `.hbs` et les polices (`*.woff2`, `*.woff`, `*.ttf`, `*.otf`) dans l’image (`nest build` les copie via `nest-cli.json` assets).
 
 ---
 
@@ -154,6 +164,7 @@ Puppeteer lance Chrome. Dans une image Linux, installer les libs système (ex. `
 | 2026-09-17 | 9. Tests et durcissement | fournie | unitaires template/filename/job, e2e POST→GET, notes Docker |
 | 2026-09-17 | 10. Images dans les templates | fournie | upload multipart, id UUID, hydrate data URL, helper Handlebars |
 | 2026-09-17 | 10. Images dans les templates | fournie | `photo` déplacé hors de `items` : un id partagé par tout le job |
+| 2026-09-17 | 11. Police du template | fournie | `src/printers/fonts/{templateId}.*` → data URL, ignore si absent |
 
 ---
 

@@ -36,6 +36,30 @@ describe('TemplateService', () => {
     expect(html).not.toContain('src="<script>');
   });
 
+  it('embeds @font-face when a font data URL is provided', async () => {
+    const html = await service.render('user-card', {
+      name: 'user1',
+      table: 'josh',
+      fontFamily: 'PrintCard',
+      fontSrc: 'data:font/woff2;base64,AAA',
+      fontFormat: 'woff2',
+    });
+
+    expect(html).toContain('@font-face');
+    expect(html).toContain('url("data:font/woff2;base64,AAA")');
+    expect(html).toContain('font-family: "PrintCard", Arial, Helvetica, sans-serif');
+  });
+
+  it('keeps the system fallback when no font is provided', async () => {
+    const html = await service.render('user-card', {
+      name: 'user1',
+      table: 'josh',
+    });
+
+    expect(html).not.toContain('@font-face');
+    expect(html).toContain('font-family: Arial, Helvetica, sans-serif');
+  });
+
   it('rejects an unknown template id', async () => {
     await expect(service.render('missing', { name: 'x' })).rejects.toBeInstanceOf(
       BadRequestException,

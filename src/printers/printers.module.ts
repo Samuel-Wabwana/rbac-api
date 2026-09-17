@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { FontService } from './font.service';
 import { ImageService } from './image.service';
 import { PdfService } from './pdf.service';
 import { PrintersController } from './printers.controller';
@@ -14,6 +15,7 @@ import { TemplateService } from './template.service';
     PdfService,
     StorageService,
     ImageService,
+    FontService,
   ],
 })
 export class PrintersModule {}

@@ -4,7 +4,13 @@
   "sourceRoot": "src",
   "compilerOptions": {
     "deleteOutDir": true,
-    "assets": [{ "include": "**/*.hbs", "watchAssets": true }],
+    "assets": [
+      { "include": "**/*.hbs", "watchAssets": true },
+      { "include": "**/*.woff2", "watchAssets": true },
+      { "include": "**/*.woff", "watchAssets": true },
+      { "include": "**/*.ttf", "watchAssets": true },
+      { "include": "**/*.otf", "watchAssets": true }
+    ],
     "plugins": ["@nestjs/swagger"]
   }
 }
