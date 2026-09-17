@@ -1,0 +1,16 @@
+---
+description: Marquer chaque étape livrée dans docs/chemin-impression-pdf.md
+alwaysApply: true
+---
+
+# Journal des étapes du chemin PDF
+
+Fichier de vérité : `docs/chemin-impression-pdf.md`.
+
+Dès qu’une étape de ce chantier est **fournie** (code, config, ou doc livrée dans le repo) :
+
+1. Cocher les cases `- [x]` de l’étape concernée.
+2. Ajouter une ligne dans **Journal des étapes fournies** : date, numéro/titre d’étape, statut `fournie`, détail court.
+3. Le dire explicitement dans la réponse chat : l’étape N est fournie et inscrite dans le `.md`.
+
+Ne jamais livrer une étape sans mettre à jour ce markdown. Si le travail est partiel, noter `partielle` dans le journal, pas `fournie`.

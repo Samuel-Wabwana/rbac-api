@@ -2,6 +2,10 @@
 /dist
 /node_modules
 
+# generated PDFs
+/storage/pdfs/**
+!/storage/pdfs/.gitkeep
+
 # Logs
 logs
 *.log

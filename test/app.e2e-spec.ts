@@ -1,18 +1,32 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
-import * as request from 'supertest';
+import request from 'supertest';
+import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
+import { configureApp } from './../src/configure-app';
+import { PdfService } from './../src/printers/pdf.service';
 
-describe('AppController (e2e)', () => {
-  let app: INestApplication;
+describe('App (e2e)', () => {
+  let app: INestApplication<App>;
+  const pdfBuffer = Buffer.from('%PDF-1.4 mock-pdf');
 
   beforeEach(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(PdfService)
+      .useValue({
+        htmlToPdfs: async (htmls: string[]) => htmls.map(() => pdfBuffer),
+      })
+      .compile();
 
     app = moduleFixture.createNestApplication();
+    configureApp(app);
     await app.init();
+  });
+
+  afterEach(async () => {
+    await app.close();
   });
 
   it('/ (GET)', () => {
@@ -20,5 +34,39 @@ describe('AppController (e2e)', () => {
       .get('/')
       .expect(200)
       .expect('Hello World!');
+  });
+
+  it('rejects an invalid print job body', () => {
+    return request(app.getHttpServer())
+      .post('/printers/jobs')
+      .send({ templateId: 'user-card', items: [] })
+      .expect(400);
+  });
+
+  it('creates a job then downloads a PDF', async () => {
+    const created = await request(app.getHttpServer())
+      .post('/printers/jobs')
+      .send({
+        templateId: 'user-card',
+        items: [{ name: 'user1', table: 'josh' }],
+      })
+      .expect(201);
+
+    expect(created.body.status).toBe('done');
+    expect(created.body.files).toHaveLength(1);
+
+    const download = await request(app.getHttpServer())
+      .get(created.body.files[0].downloadUrl)
+      .expect(200)
+      .expect('Content-Type', /pdf/);
+
+    expect(download.body.length).toBeGreaterThan(0);
+
+    await request(app.getHttpServer())
+      .get(`/printers/jobs/${created.body.id}`)
+      .expect(200)
+      .expect((res) => {
+        expect(res.body.id).toBe(created.body.id);
+      });
   });
 });

@@ -26,6 +26,9 @@
 
 [Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
 
+- Chemin du chantier PDF : [docs/chemin-impression-pdf.md](docs/chemin-impression-pdf.md)
+- Documentation API (Swagger) : [http://localhost:3000/docs](http://localhost:3000/docs) after `yarn start:dev`
+
 ## Installation
 
 ```bash
