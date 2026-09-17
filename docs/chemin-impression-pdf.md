@@ -13,6 +13,7 @@ Exemple d’entrée :
 ```json
 {
   "templateId": "user-card",
+  "photo": "<imageId>",
   "items": [
     { "name": "user1", "table": "josh" },
     { "name": "user2", "table": "anna" }
@@ -31,6 +32,8 @@ Exemple d’entrée :
 
 | Méthode | Chemin | Rôle |
 | --- | --- | --- |
+| `POST` | `/printers/images` | Upload PNG/JPEG/WebP, retourne un `id` |
+| `GET` | `/printers/images/:imageId` | Prévisualisation de l’image |
 | `POST` | `/printers/jobs` | Génère les PDF (synchrone, max 30 items) |
 | `GET` | `/printers/jobs/:jobId` | Statut + URLs de téléchargement |
 | `GET` | `/printers/jobs/:jobId/files/:fileId` | PDF d’un item |
@@ -54,7 +57,7 @@ Le CRUD scaffold (`GET/POST/PATCH/DELETE /printers`) a été retiré.
 ### 2. Contrats HTTP du job d’impression
 
 - [x] Remplacer le CRUD scaffold par un modèle **job**
-- [x] DTO `CreatePrintJobDto` : `templateId` + `items` (tableau JSON)
+- [x] DTO `CreatePrintJobDto` : `templateId` + `photo` (optionnel, partagé) + `items` (tableau JSON)
 - [x] Validation (`class-validator` / `class-transformer`) + `ValidationPipe` global
 - [x] Schémas Swagger (`@ApiProperty`, réponses 201 / 400)
 
@@ -117,6 +120,17 @@ Le CRUD scaffold (`GET/POST/PATCH/DELETE /printers`) a été retiré.
 
 **Livrable :** le chemin critique est reproductible en CI.
 
+### 10. Images dans les templates
+
+- [x] `POST /printers/images` (multipart `file`) : PNG / JPEG / WebP, max 5 Mo, identifiant UUID
+- [x] Réponse `{ id, originalName, contentType, url }` — jamais un chemin disque
+- [x] Au rendu du job, `photo` (niveau job) est hydraté en data URL et injecté dans chaque item
+- [x] Helper Handlebars `{{#image photo}}` dans `user-card.hbs`
+- [x] `GET /printers/images/:imageId` pour prévisualiser
+- [x] Fichiers hors git (`storage/images/`)
+
+**Livrable :** upload → `photo` au niveau du job → image dans chaque PDF.
+
 #### Docker / Chromium
 
 Puppeteer lance Chrome. Dans une image Linux, installer les libs système (ex. `ca-certificates`, `fonts-liberation`, dépendances Chromium) et lancer Chrome avec `--no-sandbox` (déjà passé dans `PdfService`). Copier aussi les templates `.hbs` dans l’image (`nest build` les copie via `nest-cli.json` assets).
@@ -138,6 +152,8 @@ Puppeteer lance Chrome. Dans une image Linux, installer les libs système (ex. `
 | 2026-09-17 | 7. Téléchargement | fournie | `GET .../files/:fileId` attachment PDF |
 | 2026-09-17 | 8. Lot volumineux | fournie | max 30 items sync, statuts, ZIP `/archive` (pas de BullMQ) |
 | 2026-09-17 | 9. Tests et durcissement | fournie | unitaires template/filename/job, e2e POST→GET, notes Docker |
+| 2026-09-17 | 10. Images dans les templates | fournie | upload multipart, id UUID, hydrate data URL, helper Handlebars |
+| 2026-09-17 | 10. Images dans les templates | fournie | `photo` déplacé hors de `items` : un id partagé par tout le job |
 
 ---
 

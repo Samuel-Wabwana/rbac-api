@@ -10,6 +10,7 @@ export interface PrintJobMeta {
   id: string;
   status: PrintJobStatus;
   templateId: string;
+  photo?: string;
   error?: string;
   files: PrintJobFile[];
   createdAt: string;

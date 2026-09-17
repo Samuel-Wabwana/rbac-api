@@ -25,6 +25,11 @@ export class PrintJobResponseDto {
   @ApiProperty()
   templateId!: string;
 
+  @ApiPropertyOptional({
+    description: 'Id d’image partagé par tous les items du job',
+  })
+  photo?: string;
+
   @ApiPropertyOptional()
   error?: string;
 

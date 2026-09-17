@@ -7,6 +7,7 @@ import { randomUUID } from 'crypto';
 import { CreatePrintJobDto } from './dto/create-print-job.dto';
 import { PrintJobResponseDto } from './dto/print-job-response.dto';
 import { filenameFromItem } from './filename.util';
+import { ImageService } from './image.service';
 import { PdfService } from './pdf.service';
 import { PrintJobMeta } from './print-job.types';
 import { StorageService } from './storage.service';
@@ -18,7 +19,16 @@ export class PrintersService {
     private readonly templateService: TemplateService,
     private readonly pdfService: PdfService,
     private readonly storageService: StorageService,
+    private readonly imageService: ImageService,
   ) {}
+
+  uploadImage(file: Express.Multer.File) {
+    return this.imageService.upload(file);
+  }
+
+  getImage(imageId: string) {
+    return this.imageService.getFile(imageId);
+  }
 
   async createJob(dto: CreatePrintJobDto): Promise<PrintJobResponseDto> {
     const now = new Date().toISOString();
@@ -33,6 +43,7 @@ export class PrintersService {
       id: jobId,
       status: 'processing',
       templateId: dto.templateId,
+      photo: dto.photo,
       files,
       createdAt: now,
       updatedAt: now,
@@ -40,8 +51,16 @@ export class PrintersService {
     await this.storageService.writeMeta(meta);
 
     try {
+      const photoContext = dto.photo
+        ? await this.imageService.hydrateItem({ photo: dto.photo })
+        : {};
       const htmlDocuments = await Promise.all(
-        dto.items.map((item) => this.templateService.render(dto.templateId, item)),
+        dto.items.map(async (item) =>
+          this.templateService.render(dto.templateId, {
+            ...(await this.imageService.hydrateItem(item)),
+            ...photoContext,
+          }),
+        ),
       );
       const pdfs = await this.pdfService.htmlToPdfs(htmlDocuments);
 
@@ -69,7 +88,10 @@ export class PrintersService {
     return this.toResponse(meta);
   }
 
-  async getFile(jobId: string, fileId: string): Promise<{ buffer: Buffer; filename: string }> {
+  async getFile(
+    jobId: string,
+    fileId: string,
+  ): Promise<{ buffer: Buffer; filename: string }> {
     const meta = await this.requireDoneJob(jobId);
     const file = meta.files.find((entry) => entry.id === fileId);
     if (!file) {
@@ -79,7 +101,9 @@ export class PrintersService {
     return { buffer, filename: file.filename };
   }
 
-  async getArchive(jobId: string): Promise<{ buffer: Buffer; filename: string }> {
+  async getArchive(
+    jobId: string,
+  ): Promise<{ buffer: Buffer; filename: string }> {
     const meta = await this.requireDoneJob(jobId);
     const buffer = await this.storageService.zipJob(jobId, meta.files);
     return { buffer, filename: `print-job-${jobId}.zip` };
@@ -100,6 +124,7 @@ export class PrintersService {
       id: meta.id,
       status: meta.status,
       templateId: meta.templateId,
+      photo: meta.photo,
       error: meta.error,
       files: meta.files.map((file) => ({
         id: file.id,

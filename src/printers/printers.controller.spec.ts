@@ -10,6 +10,8 @@ describe('PrintersController', () => {
     getJob: jest.fn(),
     getFile: jest.fn(),
     getArchive: jest.fn(),
+    uploadImage: jest.fn(),
+    getImage: jest.fn(),
   };
 
   beforeEach(async () => {

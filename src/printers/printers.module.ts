@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ImageService } from './image.service';
 import { PdfService } from './pdf.service';
 import { PrintersController } from './printers.controller';
 import { PrintersService } from './printers.service';
@@ -7,6 +8,12 @@ import { TemplateService } from './template.service';
 
 @Module({
   controllers: [PrintersController],
-  providers: [PrintersService, TemplateService, PdfService, StorageService],
+  providers: [
+    PrintersService,
+    TemplateService,
+    PdfService,
+    StorageService,
+    ImageService,
+  ],
 })
 export class PrintersModule {}

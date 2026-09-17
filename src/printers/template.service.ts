@@ -2,8 +2,19 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { promises as fs } from 'fs';
 import Handlebars from 'handlebars';
 import { join } from 'path';
+import { isImageDataUrl } from './image.util';
 
 const TEMPLATE_ID = /^[a-z0-9-]+$/;
+
+Handlebars.registerHelper(
+  'image',
+  function (this: unknown, value: unknown, options: Handlebars.HelperOptions) {
+    if (typeof value === 'string' && isImageDataUrl(value)) {
+      return options.fn({ src: value });
+    }
+    return options.inverse(this);
+  },
+);
 
 @Injectable()
 export class TemplateService {

@@ -69,4 +69,39 @@ describe('App (e2e)', () => {
         expect(res.body.id).toBe(created.body.id);
       });
   });
+
+  it('uploads an image then uses its id in a print job', async () => {
+    const png = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+      'base64',
+    );
+
+    const uploaded = await request(app.getHttpServer())
+      .post('/printers/images')
+      .attach('file', png, { filename: 'dot.png', contentType: 'image/png' })
+      .expect(201);
+
+    expect(uploaded.body.id).toBeDefined();
+    expect(uploaded.body.url).toBe(`/printers/images/${uploaded.body.id}`);
+
+    await request(app.getHttpServer())
+      .get(uploaded.body.url)
+      .expect(200)
+      .expect('Content-Type', /image\/png/);
+
+    const created = await request(app.getHttpServer())
+      .post('/printers/jobs')
+      .send({
+        templateId: 'user-card',
+        photo: uploaded.body.id,
+        items: [
+          { name: 'user1', table: 'josh' },
+          { name: 'user2', table: 'anna' },
+        ],
+      })
+      .expect(201);
+
+    expect(created.body.photo).toBe(uploaded.body.id);
+    expect(created.body.files[0].item.photo).toBeUndefined();
+  });
 });

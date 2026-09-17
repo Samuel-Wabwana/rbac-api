@@ -3,26 +3,31 @@ import { PrintersService } from './printers.service';
 import { PdfService } from './pdf.service';
 import { StorageService } from './storage.service';
 import { TemplateService } from './template.service';
+import { ImageService } from './image.service';
 import { NotFoundException } from '@nestjs/common';
+import { TINY_PNG } from './image.util';
 
 describe('PrintersService', () => {
   let service: PrintersService;
   let storage: StorageService;
+  let htmlToPdfs: jest.Mock;
 
   const pdfBuffer = Buffer.from('%PDF-1.4 mock');
 
   beforeEach(async () => {
+    htmlToPdfs = jest.fn(async (htmls: string[]) =>
+      htmls.map(() => pdfBuffer),
+    );
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PrintersService,
         TemplateService,
         StorageService,
+        ImageService,
         {
           provide: PdfService,
           useValue: {
-            htmlToPdfs: jest.fn(async (htmls: string[]) =>
-              htmls.map(() => pdfBuffer),
-            ),
+            htmlToPdfs,
           },
         },
       ],
@@ -67,5 +72,29 @@ describe('PrintersService', () => {
     const meta = await storage.readMeta(job.id);
     expect(meta.status).toBe('done');
     expect(meta.files).toHaveLength(1);
+  });
+
+  it('hydrates uploaded image ids into the HTML without storing data URLs in meta', async () => {
+    const uploaded = await service.uploadImage({
+      buffer: TINY_PNG,
+      originalname: 'dot.png',
+      size: TINY_PNG.length,
+    } as Express.Multer.File);
+
+    const job = await service.createJob({
+      templateId: 'user-card',
+      photo: uploaded.id,
+      items: [
+        { name: 'user1', table: 'josh' },
+        { name: 'user2', table: 'anna' },
+      ],
+    });
+
+    const htmls = htmlToPdfs.mock.calls[0][0] as string[];
+    expect(htmls).toHaveLength(2);
+    expect(htmls[0]).toContain('data:image/png;base64,');
+    expect(htmls[1]).toContain('data:image/png;base64,');
+    expect(job.photo).toBe(uploaded.id);
+    expect(job.files[0].item.photo).toBeUndefined();
   });
 });

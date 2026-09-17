@@ -6,6 +6,10 @@
 /storage/pdfs/**
 !/storage/pdfs/.gitkeep
 
+# uploaded print images
+/storage/images/**
+!/storage/images/.gitkeep
+
 # Logs
 logs
 *.log

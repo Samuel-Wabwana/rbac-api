@@ -26,10 +26,20 @@
       .label {
         color: #555;
       }
+      .photo {
+        display: block;
+        max-width: 160px;
+        max-height: 160px;
+        margin: 0 0 16px;
+        object-fit: cover;
+      }
     </style>
   </head>
   <body>
     <section class="card">
+      {{#image photo}}
+      <img class="photo" src="{{{src}}}" alt="" />
+      {{/image}}
       <h1>{{name}}</h1>
       <p><span class="label">Table :</span> {{table}}</p>
     </section>
