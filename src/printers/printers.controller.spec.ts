@@ -29,6 +29,7 @@ describe('PrintersController', () => {
     await expect(
       controller.create({
         templateId: 'user-card',
+        partners: ['Hinata', 'Naruto'],
         items: [{ name: 'user1' }],
       }),
     ).resolves.toEqual({ id: 'job-1' });

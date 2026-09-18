@@ -16,7 +16,8 @@ describe('App (e2e)', () => {
     })
       .overrideProvider(PdfService)
       .useValue({
-        htmlToPdfs: async (htmls: string[]) => htmls.map(() => pdfBuffer),
+        htmlToPdfs: async (htmls: string[], _pageSize?: unknown) =>
+          htmls.map(() => pdfBuffer),
       })
       .compile();
 
@@ -43,11 +44,38 @@ describe('App (e2e)', () => {
       .expect(400);
   });
 
+  it('rejects mixed format and custom page dimensions', () => {
+    return request(app.getHttpServer())
+      .post('/printers/jobs')
+      .send({
+        templateId: 'user-card',
+        format: 'A5',
+        width: '148mm',
+        height: '210mm',
+        partners: ['Hinata', 'Naruto'],
+        items: [{ name: 'user1', table: 'josh' }],
+      })
+      .expect(400);
+  });
+
+  it('rejects width without height', () => {
+    return request(app.getHttpServer())
+      .post('/printers/jobs')
+      .send({
+        templateId: 'user-card',
+        width: '148mm',
+        partners: ['Hinata', 'Naruto'],
+        items: [{ name: 'user1', table: 'josh' }],
+      })
+      .expect(400);
+  });
+
   it('creates a job then downloads a PDF', async () => {
     const created = await request(app.getHttpServer())
       .post('/printers/jobs')
       .send({
         templateId: 'user-card',
+        partners: ['Hinata', 'Naruto'],
         items: [{ name: 'user1', table: 'josh' }],
       })
       .expect(201);
@@ -93,7 +121,8 @@ describe('App (e2e)', () => {
       .post('/printers/jobs')
       .send({
         templateId: 'user-card',
-        photo: uploaded.body.id,
+        partners: ['Hinata', 'Naruto'],
+        photos: [uploaded.body.id],
         items: [
           { name: 'user1', table: 'josh' },
           { name: 'user2', table: 'anna' },
@@ -101,7 +130,7 @@ describe('App (e2e)', () => {
       })
       .expect(201);
 
-    expect(created.body.photo).toBe(uploaded.body.id);
-    expect(created.body.files[0].item.photo).toBeUndefined();
+    expect(created.body.photos).toEqual([uploaded.body.id]);
+    expect(created.body.files[0].item.photos).toBeUndefined();
   });
 });

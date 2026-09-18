@@ -8,18 +8,59 @@ Swagger UI (une fois le serveur lancé) : [http://localhost:3000/docs](http://lo
 
 Recevoir un tableau JSON (ex. utilisateurs), fusionner chaque entrée avec un template HTML, produire **un PDF distinct par entrée**, puis permettre le téléchargement.
 
-Exemple d’entrée :
+### Parcours type
+
+1. **Uploader les images** — `POST /printers/images` (champ multipart `file`, 1 à 3 fichiers). Réponse : un objet `{ id, … }` si un seul fichier, un **tableau** d’objets si plusieurs.
+2. **Créer le job** — `POST /printers/jobs` avec les ids retournés dans `photos`, les champs partagés du mariage, et un `items` par invité (un PDF chacun).
+
+Exemple de body `POST /printers/jobs` :
 
 ```json
 {
   "templateId": "user-card",
-  "photo": "<imageId>",
+  "format": "A5",
+  "photos": ["<imageId-page1>", "<imageId-page4>"],
+  "dayOfWeek": "Samedi",
+  "day": "12",
+  "month": "Août",
+  "year": "2025",
+  "partners": ["Hinata", "Naruto"],
   "items": [
     { "name": "user1", "table": "josh" },
     { "name": "user2", "table": "anna" }
   ]
 }
 ```
+
+Dimensions custom (alternative à `format`) :
+
+```json
+{
+  "templateId": "user-card",
+  "width": "148mm",
+  "height": "210mm",
+  "partners": ["Hinata", "Naruto"],
+  "items": [{ "name": "user1", "table": "josh" }]
+}
+```
+
+### Champs du job (`CreatePrintJobDto`)
+
+| Champ | Obligatoire | Description |
+| --- | --- | --- |
+| `templateId` | oui | Identifiant du fichier `.hbs` (ex. `user-card`) |
+| `partners` | oui | `[prénom1, prénom2]` — partagé par tous les PDF |
+| `format` | non | `A4` ou `A5`. Incompatible avec `width`/`height`. Défaut : `A5` |
+| `width` | non | Largeur PDF (ex. `148mm`). Obligatoire avec `height` si `format` absent |
+| `height` | non | Hauteur PDF (ex. `210mm`). Obligatoire avec `width` si `format` absent |
+| `photos` | non | 0 à 3 ids d’images (résultat de `POST /printers/images`) |
+| `dayOfWeek` | non | Jour de la semaine (ex. `Samedi`) |
+| `day` | non | Jour du mois (ex. `12`) |
+| `month` | non | Mois (ex. `Août`) |
+| `year` | non | Année (ex. `2025`) |
+| `items` | oui | 1 à 30 objets JSON ; **un PDF par élément** |
+
+Les champs hors `items` sont injectés dans **chaque** rendu Handlebars (contexte partagé du job).
 
 ## Principes
 
@@ -32,7 +73,7 @@ Exemple d’entrée :
 
 | Méthode | Chemin | Rôle |
 | --- | --- | --- |
-| `POST` | `/printers/images` | Upload PNG/JPEG/WebP, retourne un `id` |
+| `POST` | `/printers/images` | Upload 1 à 3 images PNG/JPEG/WebP (champ `file`), retourne un `id` ou un tableau d’ids |
 | `GET` | `/printers/images/:imageId` | Prévisualisation de l’image |
 | `POST` | `/printers/jobs` | Génère les PDF (synchrone, max 30 items) |
 | `GET` | `/printers/jobs/:jobId` | Statut + URLs de téléchargement |
@@ -57,7 +98,7 @@ Le CRUD scaffold (`GET/POST/PATCH/DELETE /printers`) a été retiré.
 ### 2. Contrats HTTP du job d’impression
 
 - [x] Remplacer le CRUD scaffold par un modèle **job**
-- [x] DTO `CreatePrintJobDto` : `templateId` + `photo` (optionnel, partagé) + `items` (tableau JSON)
+- [x] DTO `CreatePrintJobDto` : `templateId` + `format` (`A4`/`A5`) ou `width`/`height` (optionnels, exclusifs) + `photos` (0 à 3, partagées) + `dayOfWeek` / `day` / `month` / `year` (optionnels, partagés) + `partners` (obligatoire, `[string, string]`) + `items` (tableau JSON)
 - [x] Validation (`class-validator` / `class-transformer`) + `ValidationPipe` global
 - [x] Schémas Swagger (`@ApiProperty`, réponses 201 / 400)
 
@@ -69,13 +110,37 @@ Le CRUD scaffold (`GET/POST/PATCH/DELETE /printers`) a été retiré.
 - [x] Moteur de fusion (Handlebars) avec échappement HTML
 - [x] Chargement d’un template par `templateId` (fichier connu, pas de chemin libre)
 
-**Livrable :** pour un user `{ name, table }`, un HTML complet prêt à imprimer.
+**Livrable :** fusion Handlebars par `templateId`, HTML prêt à imprimer.
+
+#### Template `user-card` (invitation mariage)
+
+Variables **niveau job** (déclarées dans le body du job) :
+
+| Variable | Exemple Handlebars | Usage dans le template |
+| --- | --- | --- |
+| `partners` | `{{lookup partners 0}}`, `{{lookup partners 1}}` | Prénoms des mariés (pages 1 et 3) |
+| `dayOfWeek` | `{{dayOfWeek}}` | Jour de la semaine (page 1) |
+| `day` | `{{day}}` | Jour du mois (page 1) |
+| `month` | `{{month}}` | Mois (page 1) |
+| `year` | `{{year}}` | Année (page 1) |
+| `photos` | `{{#image (lookup photos 0)}}` … `{{/image}}` | Page 1 : 1re photo ; page 4 : `lookup photos 1` |
+
+Le template `user-card` attend **2 photos** pour un rendu complet (`photos[0]` couverture, `photos[1]` page RSVP).
+
+Variables **niveau item** (champs libres dans chaque entrée de `items`, ex. invité) :
+
+| Variable | Exemple | Usage |
+| --- | --- | --- |
+| `name` | `{{name}}` | Nom de l’invité |
+| `table` | `{{table}}` | Table assignée |
+
+Helper image : `{{#image …}}` n’affiche la balise `<img>` que si la valeur est une data URL d’image valide (après hydratation côté serveur).
 
 ### 4. Moteur HTML → PDF
 
 - [x] Puppeteer, un navigateur réutilisé par lot
 - [x] Une page (donc un PDF) par item
-- [x] Options A4 + `printBackground`
+- [x] Taille de page via payload (`format` A4/A5 ou `width`/`height`) + `printBackground` + marges 0
 - [x] Gérer timeout, erreurs de rendu, fermeture du browser
 
 **Livrable :** buffers PDF valides en local.
@@ -122,14 +187,15 @@ Le CRUD scaffold (`GET/POST/PATCH/DELETE /printers`) a été retiré.
 
 ### 10. Images dans les templates
 
-- [x] `POST /printers/images` (multipart `file`) : PNG / JPEG / WebP, max 5 Mo, identifiant UUID
-- [x] Réponse `{ id, originalName, contentType, url }` — jamais un chemin disque
-- [x] Au rendu du job, `photo` (niveau job) est hydraté en data URL et injecté dans chaque item
-- [x] Helper Handlebars `{{#image photo}}` dans `user-card.hbs`
+- [x] `POST /printers/images` (multipart `file`, **1 à 3 fichiers** par requête) : PNG / JPEG / WebP, max 5 Mo chacun, identifiant UUID
+- [x] Réponse : `{ id, originalName, contentType, url }` (1 fichier) ou **tableau** de ces objets (2–3 fichiers) — jamais un chemin disque
+- [x] Au rendu du job, `photos` (niveau job, 0 à 3) sont hydratées en data URL et injectées dans chaque item
+- [x] Helper Handlebars `{{#image (lookup photos 0)}}` / `{{#image (lookup photos 1)}}` dans `user-card.hbs`
 - [x] `GET /printers/images/:imageId` pour prévisualiser
 - [x] Fichiers hors git (`storage/images/`)
+- [x] Erreurs Multer (ex. fichier trop lourd) → 400/413 via `MulterExceptionFilter` (compatible Multer 2.x)
 
-**Livrable :** upload → `photo` au niveau du job → image dans chaque PDF.
+**Livrable :** upload (simple ou groupé) → ids dans `photos` au niveau du job → images dans chaque PDF.
 
 ### 11. Police du template
 
@@ -165,6 +231,13 @@ Puppeteer lance Chrome. Dans une image Linux, installer les libs système (ex. `
 | 2026-09-17 | 10. Images dans les templates | fournie | upload multipart, id UUID, hydrate data URL, helper Handlebars |
 | 2026-09-17 | 10. Images dans les templates | fournie | `photo` déplacé hors de `items` : un id partagé par tout le job |
 | 2026-09-17 | 11. Police du template | fournie | `src/printers/fonts/{templateId}.*` → data URL, ignore si absent |
+| 2026-09-18 | 2. Contrats HTTP du job | fournie | `photo` → `photos` (0 à 3) ; ajout `dayOfWeek`, `day`, `year` au niveau job |
+| 2026-09-18 | 2. Contrats HTTP du job | fournie | `partners` obligatoire `[string, string]` au niveau job |
+| 2026-09-18 | 3. Templates HTML | fournie | `user-card` : variables `partners`, `dayOfWeek`, `day`, `month`, `year`, `photos` documentées |
+| 2026-09-18 | 10. Images dans les templates | fournie | upload 1–3 fichiers par requête ; `MulterExceptionFilter` ; syntaxe `lookup photos N` |
+| 2026-09-18 | 2. Contrats HTTP du job | fournie | ajout `month` (optionnel) au niveau job, lié à `{{month}}` dans `user-card` |
+| 2026-09-18 | 2. Contrats HTTP du job | fournie | `format` (`A4`/`A5`) ou `width`/`height` pour la taille PDF ; défaut A5 ; marges 0 dans `PdfService` |
+| 2026-09-18 | 4. Moteur HTML → PDF | fournie | taille de page pilotée par le payload job (plus de `format: A4` fixe) |
 
 ---
 

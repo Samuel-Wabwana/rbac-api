@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import type { PrintJobStatus } from '../print-job.types';
+import type { PdfPageSize, PrintJobStatus } from '../print-job.types';
 
 export class PrintJobFileDto {
   @ApiProperty()
@@ -26,9 +26,51 @@ export class PrintJobResponseDto {
   templateId!: string;
 
   @ApiPropertyOptional({
-    description: 'Id d’image partagé par tous les items du job',
+    oneOf: [
+      {
+        type: 'object',
+        properties: { format: { type: 'string', enum: ['A4', 'A5'] } },
+        required: ['format'],
+      },
+      {
+        type: 'object',
+        properties: {
+          width: { type: 'string', example: '148mm' },
+          height: { type: 'string', example: '210mm' },
+        },
+        required: ['width', 'height'],
+      },
+    ],
+    description:
+      'Taille de page PDF utilisée pour le job (format prédéfini ou dimensions custom).',
   })
-  photo?: string;
+  pageSize?: PdfPageSize;
+
+  @ApiPropertyOptional({
+    type: [String],
+    description: 'Ids d’images partagés par tous les items du job (0 à 3)',
+  })
+  photos?: string[];
+
+  @ApiPropertyOptional()
+  dayOfWeek?: string;
+
+  @ApiPropertyOptional()
+  day?: string;
+
+  @ApiPropertyOptional()
+  month?: string;
+
+  @ApiPropertyOptional()
+  year?: string;
+
+  @ApiProperty({
+    type: [String],
+    minItems: 2,
+    maxItems: 2,
+    description: 'Les deux prénoms des mariés, partagés par tous les items du job',
+  })
+  partners!: [string, string];
 
   @ApiPropertyOptional()
   error?: string;

@@ -10,7 +10,7 @@ import { filenameFromItem } from './filename.util';
 import { FontService } from './font.service';
 import { ImageService } from './image.service';
 import { PdfService } from './pdf.service';
-import { PrintJobMeta } from './print-job.types';
+import { PrintJobMeta, resolvePdfPageSize } from './print-job.types';
 import { StorageService } from './storage.service';
 import { TemplateService } from './template.service';
 
@@ -41,11 +41,18 @@ export class PrintersService {
       item,
     }));
 
+    const pageSize = resolvePdfPageSize(dto);
     const meta: PrintJobMeta = {
       id: jobId,
       status: 'processing',
       templateId: dto.templateId,
-      photo: dto.photo,
+      pageSize,
+      photos: dto.photos,
+      dayOfWeek: dto.dayOfWeek,
+      day: dto.day,
+      month: dto.month,
+      year: dto.year,
+      partners: dto.partners,
       files,
       createdAt: now,
       updatedAt: now,
@@ -53,20 +60,18 @@ export class PrintersService {
     await this.storageService.writeMeta(meta);
 
     try {
-      const photoContext = dto.photo
-        ? await this.imageService.hydrateItem({ photo: dto.photo })
-        : {};
+      const jobContext = await this.buildJobRenderContext(dto);
       const fontContext = (await this.fontService.load(dto.templateId)) ?? {};
       const htmlDocuments = await Promise.all(
         dto.items.map(async (item) =>
           this.templateService.render(dto.templateId, {
             ...(await this.imageService.hydrateItem(item)),
-            ...photoContext,
+            ...jobContext,
             ...fontContext,
           }),
         ),
       );
-      const pdfs = await this.pdfService.htmlToPdfs(htmlDocuments);
+      const pdfs = await this.pdfService.htmlToPdfs(htmlDocuments, pageSize);
 
       await Promise.all(
         files.map((file, index) =>
@@ -123,12 +128,41 @@ export class PrintersService {
     return meta;
   }
 
+  private async buildJobRenderContext(
+    dto: CreatePrintJobDto,
+  ): Promise<Record<string, unknown>> {
+    const context: Record<string, unknown> = {};
+    if (dto.photos?.length) {
+      context.photos = await this.imageService.hydratePhotos(dto.photos);
+    }
+    if (dto.dayOfWeek !== undefined) {
+      context.dayOfWeek = dto.dayOfWeek;
+    }
+    if (dto.day !== undefined) {
+      context.day = dto.day;
+    }
+    if (dto.month !== undefined) {
+      context.month = dto.month;
+    }
+    if (dto.year !== undefined) {
+      context.year = dto.year;
+    }
+    context.partners = dto.partners;
+    return context;
+  }
+
   private toResponse(meta: PrintJobMeta): PrintJobResponseDto {
     return {
       id: meta.id,
       status: meta.status,
       templateId: meta.templateId,
-      photo: meta.photo,
+      pageSize: meta.pageSize,
+      photos: meta.photos,
+      dayOfWeek: meta.dayOfWeek,
+      day: meta.day,
+      month: meta.month,
+      year: meta.year,
+      partners: meta.partners,
       error: meta.error,
       files: meta.files.map((file) => ({
         id: file.id,

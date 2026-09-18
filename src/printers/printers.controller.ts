@@ -1,16 +1,17 @@
 import {
+  BadRequestException,
+  Body,
   Controller,
   Get,
   Header,
   Param,
-  Post,
-  Body,
-  StreamableFile,
-  UploadedFile,
-  UseInterceptors,
   ParseUUIDPipe,
+  Post,
+  StreamableFile,
+  UploadedFiles,
+  UseInterceptors,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FilesInterceptor } from '@nestjs/platform-express';
 import {
   ApiBadRequestResponse,
   ApiBody,
@@ -36,7 +37,7 @@ export class PrintersController {
 
   @Post('images')
   @UseInterceptors(
-    FileInterceptor('file', { limits: { fileSize: MAX_IMAGE_BYTES } }),
+    FilesInterceptor('file', 3, { limits: { fileSize: MAX_IMAGE_BYTES } }),
   )
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -44,19 +45,33 @@ export class PrintersController {
       type: 'object',
       required: ['file'],
       properties: {
-        file: { type: 'string', format: 'binary' },
+        file: {
+          type: 'array',
+          items: { type: 'string', format: 'binary' },
+          maxItems: 3,
+        },
       },
     },
   })
   @ApiOperation({
-    summary: 'Uploader une image (PNG, JPEG, WebP) et récupérer son id',
+    summary:
+      'Uploader une ou plusieurs images (PNG, JPEG, WebP, max 3) et récupérer leur(s) id(s)',
   })
   @ApiCreatedResponse({ type: ImageResponseDto })
   @ApiBadRequestResponse({
     description: 'Fichier manquant ou type non autorisé',
   })
-  uploadImage(@UploadedFile() file: Express.Multer.File) {
-    return this.printersService.uploadImage(file);
+  uploadImages(@UploadedFiles() files: Express.Multer.File[]) {
+    const uploads = files ?? [];
+    if (uploads.length === 0) {
+      throw new BadRequestException('A file field named "file" is required');
+    }
+    if (uploads.length === 1) {
+      return this.printersService.uploadImage(uploads[0]);
+    }
+    return Promise.all(
+      uploads.map((file) => this.printersService.uploadImage(file)),
+    );
   }
 
   @Get('images/:imageId')

@@ -46,6 +46,18 @@ describe('ImageService', () => {
     expect(String(hydrated.photo)).toMatch(/^data:image\/png;base64,/);
   });
 
+  it('hydrates an array of image ids', async () => {
+    const uploaded = await service.upload({
+      buffer: TINY_PNG,
+      originalname: 'dot.png',
+      size: TINY_PNG.length,
+    } as Express.Multer.File);
+
+    const hydrated = await service.hydratePhotos([uploaded.id]);
+    expect(hydrated).toHaveLength(1);
+    expect(hydrated[0]).toMatch(/^data:image\/png;base64,/);
+  });
+
   it('leaves unknown uuids unchanged', async () => {
     const id = '00000000-0000-4000-8000-000000000000';
     const hydrated = await service.hydrateItem({ photo: id });

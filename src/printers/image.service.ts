@@ -52,6 +52,16 @@ export class ImageService {
     };
   }
 
+  async hydratePhotos(photoIds: string[]): Promise<string[]> {
+    const hydrated = await Promise.all(
+      photoIds.map(async (id) => {
+        const item = await this.hydrateItem({ photo: id });
+        return item.photo as string;
+      }),
+    );
+    return hydrated;
+  }
+
   async hydrateItem(
     item: Record<string, unknown>,
   ): Promise<Record<string, unknown>> {
